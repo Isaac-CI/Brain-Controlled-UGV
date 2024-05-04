@@ -23,7 +23,7 @@ const char *password = "83D24D124F";  // Enter WiFi password
 const char *mqtt_broker = "192.168.15.120";
 const char *topic = "bri/command";
 const char *debug_topic = "bri/debug";
-const bool debug = true;
+const bool debug = false;
 const char *mqtt_username = "subscriber";
 const char *mqtt_password = "subscriber";
 const int mqtt_port = 1883;
@@ -217,39 +217,17 @@ void callback(char *topic, byte *payload, unsigned int length) {
   // turns payload in a string in order to use strcmp function
   char message[length + 1];
   read_mqtt_message(topic, payload, length, message);
+  
   movement_t move = stop;
-  // if(message[0] == 'p'){ // command is push or pull
-  //     if(message[2] == 'l'){ // command is pull
-  //       if(debug) { client.publish(debug_topic, "Stopping"); }
-  //       move = stop;
-  //     } else { // command is push
-  //       if(debug) { client.publish(debug_topic, "Moving Foward"); }
-  //       move = foward;
-  //     }
-  // } else if(message[0] == 'l') { // command is lift or left
-  //   if(message[1] == 'i'){ // command is lift
-  //     if(debug) { client.publish(debug_topic, "Rotating Clockwise"); }
-  //     move = rotate_clockwise;
-  //   }
-  // } else if(message[0] == 'd'){ // command is drop or disapear
-  //   if(message[1] == 'r'){ // command is drop
-  //     if(debug) { client.publish(debug_topic, "Rotating Anti-Clockwise"); }
-  //     move = rotate_anticlockwise;
-  //   }
-  // } else { // command is neutral or isn't supported
-  //   if(message[0] == 'n') { // command is neutral
-  //     if(debug) { client.publish(debug_topic, "Continuing Movement"); }
-  //     move = continue_movement;
-  //   } else{ // command isn't supported
-  //     if(debug) { client.publish(debug_topic, "Command is not supported, stopping"); }
-  //     move = stop;
-  //   }
-  // }
+
+  // Verifiy which command was received
   if(!strcmp(message, "pull")) { move = stop; }
   else if(!strcmp(message, "push")) { move = foward; }
   else if(!strcmp(message, "lift")) { move = rotate_clockwise; }
   else if(!strcmp(message, "drop")) { move = rotate_anticlockwise; }
   else { move = stop; }
+  
+  // Update pin output accordingly to the received command
   switch_movement(move);
   if(debug) { client.publish(debug_topic, "-----------------------"); }
 }
@@ -259,6 +237,7 @@ void loop() {
     if (WiFi.status() == WL_CONNECTED) { // connects to mqtt client if WiFi is connected
       connect_mqtt();
     } else { // or waits until WiFi reconnection
+      // TO DO: parar o robô em caso de desconexão
       delay(2000);
     }
   } else {
