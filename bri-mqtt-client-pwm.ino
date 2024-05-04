@@ -4,22 +4,26 @@
 #include "driver/ledc.h"
 #include "esp_err.h"
 
-#define EN_B GPIO_NUM_32
-#define IN_4 GPIO_NUM_33
-#define IN_3 GPIO_NUM_26
-#define IN_2 GPIO_NUM_27
-#define IN_1 GPIO_NUM_14
-#define EN_A GPIO_NUM_13
+// h-bridge output/pwm pins
+#define EN_B GPIO_NUM_23
+#define IN_4 GPIO_NUM_19
+#define IN_3 GPIO_NUM_5
+#define IN_2 GPIO_NUM_18
+#define IN_1 GPIO_NUM_21
+#define EN_A GPIO_NUM_22
 
+// pwm frequency
 #define LEDC_FREQ 2000
 
-// WiFi
+// WiFi parameters
 const char *ssid = "VIVOFIBRA-C9A8"; // Enter your WiFi name
 const char *password = "83D24D124F";  // Enter WiFi password
 
-// MQTT Broker
+// MQTT Broker parameters
 const char *mqtt_broker = "192.168.15.120";
 const char *topic = "bri/command";
+const char *debug_topic = "bri/debug";
+const bool debug = true;
 const char *mqtt_username = "subscriber";
 const char *mqtt_password = "subscriber";
 const int mqtt_port = 1883;
@@ -30,7 +34,7 @@ ledc_channel_config_t channel_EN_A = {
   .speed_mode =   LEDC_LOW_SPEED_MODE,   // Modo de Velocidade -> LOW
   .channel    =   LEDC_CHANNEL_0,           
   .timer_sel  =   LEDC_TIMER_0,
-  .duty       =   755,
+  .duty       =   755,              // duty slightly bigger than EN_B in order to compesate uneven load
   .hpoint     =   0
 
 };
@@ -63,14 +67,56 @@ uint32_t dutyCycleR = 750;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-void setup() {
-    // pinMode(EN_A, OUTPUT);
-    // gpio_pad_select_gpio(EN_A);
-    // gpio_set_direction(EN_A, GPIO_MODE_OUTPUT);
-    
+typedef enum {
+  foward,
+  rotate_clockwise,
+  rotate_anticlockwise,
+  stop,
+  continue_movement
+} movement_t;
 
+void switch_movement(movement_t mode) {
+  switch(mode) {
+    case 0:
+      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, dutyCycleL, 0);
+      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, dutyCycleR, 0);
+      gpio_set_level(IN_1, 1);
+      gpio_set_level(IN_2, 0);
+      gpio_set_level(IN_3, 1);
+      gpio_set_level(IN_4, 0);
+      break;
+    case 1:
+      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, dutyCycleL, 0);
+      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0, 0);
+      gpio_set_level(IN_1, 1);
+      gpio_set_level(IN_2, 0);
+      gpio_set_level(IN_3, 0); 
+      gpio_set_level(IN_4, 0);
+      break;
+    case 2:        
+      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0, 0);
+      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, dutyCycleR, 0);  
+      gpio_set_level(IN_1, 0);
+      gpio_set_level(IN_2, 0);
+      gpio_set_level(IN_3, 1);
+      gpio_set_level(IN_4, 0);
+      break;
+    case 3:        
+      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0, 0);
+      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0, 0);  
+      gpio_set_level(IN_1, 0);
+      gpio_set_level(IN_2, 0);
+      gpio_set_level(IN_3, 0);
+      gpio_set_level(IN_4, 0);
+      break;
+    default:
+      // do nothing
+      break;
+  }
+}
+
+void set_pins() {
   ledc_timer_config(&timer); // Envia o endereço  da estrutura timer para a função de configuração do canal PWM 
-
 
   ledc_channel_config(&channel_EN_A);
   ledc_channel_config(&channel_EN_B);
@@ -86,122 +132,137 @@ void setup() {
   gpio_set_direction(IN_3, GPIO_MODE_OUTPUT);
   gpio_pad_select_gpio(IN_4);
   gpio_set_direction(IN_4, GPIO_MODE_OUTPUT);
-  // gpio_pad_select_gpio(EN_B);
-  // gpio_set_direction(EN_B, GPIO_MODE_OUTPUT);
-    
+}
+
+void connect_mqtt() {
+  // set mqtt broker parameters
+  client.setServer(mqtt_broker, mqtt_port);
+  
+  // register callback for recieving data
+  client.setCallback(callback);
+
+  // loops until successfull connection with mqtt broker
+  while (!client.connected()) {
+      String client_id = "esp32-client-";
+      client_id += String(WiFi.macAddress());
+      Serial.printf("The client %s connects to the public MQTT broker\n", client_id.c_str());
+      if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
+        if(debug) { client.publish(debug_topic, "Public MQTT broker connected"); }
+      } else {
+          Serial.print("failed with state ");
+          Serial.print(client.state());
+          delay(2000);
+      }
+  }
+  // Subscribe to topic
+  client.subscribe(topic);
+  if(debug) { client.publish(debug_topic, "Subscibed to topic:"); client.publish(debug_topic, topic); }
+}
+
+void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
+  if(debug) { client.publish(debug_topic, "Disconnected from WiFi access point"); }
+  Serial.print("WiFi lost connection. Reason: ");
+  if(debug) { client.publish(debug_topic, (char*) &info.wifi_sta_disconnected.reason); }
+  if(debug) { client.publish(debug_topic, "Trying to Reconnect"); }
+  // reconnects to WiFi
+  WiFi.begin(ssid, password);
+  // Reconnects to mqtt broker and subscribes to topic
+  connect_mqtt();
+}
+
+void read_mqtt_message(char *topic, byte *payload, uint32_t length, char *message) {
+  if(debug) {
+    client.publish(debug_topic, "Message arrived in topic: ");
+    client.publish(debug_topic, topic);
+    Serial.println("Message arrived in topic: "); 
+    Serial.println(topic);
+  }
+
+  Serial.printf("Message length %d\n", length);
+  Serial.print("Message:");
+
+  // store payload into buffer
+  for (int i = 0; i < length; i++) {
+      message[i] = (char) payload[i];
+  }
+  // transforms buffer into string
+  message[length] = '\0';
+  Serial.println(message);
+  if(debug) { client.publish(debug_topic, "Recieved message: "); client.publish(debug_topic, message); }
+  
+}
+
+void setup() {
+  // set pins EN_A and EN_B as pwm channels and the remaining as outputs
+  set_pins();
+  
   // Set software serial baud to 115200;
-  //Serial.begin(115200);
+  Serial.begin(115200);
+
+  // delete old config
+  WiFi.disconnect(true);
+  // configure callback for wifi disconnection
+  WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
   // Connecting to a WiFi network
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
-      //Serial.println("Connecting to WiFi..");
   }
-  //Serial.println("Connected to the Wi-Fi network");
   //connecting to a mqtt broker
-  client.setServer(mqtt_broker, mqtt_port);
-  client.setCallback(callback);
-  while (!client.connected()) {
-      String client_id = "esp32-client-";
-      client_id += String(WiFi.macAddress());
-      //Serial.printf("The client %s connects to the public MQTT broker\n", client_id.c_str());
-      if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
-        //Serial.println("Public MQTT broker connected");
-      } else {
-          //Serial.print("failed with state ");
-          //Serial.print(client.state());
-          delay(2000);
-      }
-  }
-  // Publish and subscribe
-  client.subscribe(topic);
+  connect_mqtt();
 }
 
 void callback(char *topic, byte *payload, unsigned int length) {
-  //Serial.print("Message arrived in topic: ");
-  //Serial.println(topic);
+  // turns payload in a string in order to use strcmp function
   char message[length + 1];
-  Serial.print("Message:");
-  for (int i = 0; i < length; i++) {
-      message[i] = (char) payload[i];
-  }
-  message[length] = '\0';
-  if(message[0] == 'p'){ // command is push or pull
-      if(message[2] == 'l'){ // command is pull
-        //Serial.println("Stopping");
-        // gpio_set_level(EN_A, 0);
-        // gpio_set_level(EN_B, 0);
-          
-        // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0, 0);
-        // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0, 0);
-
-        gpio_set_level(IN_1, 0);
-        gpio_set_level(IN_2, 0);
-        gpio_set_level(IN_3, 0);
-        gpio_set_level(IN_4, 0);
-  
-      } else { // command is push
-        //Serial.println("Moving Foward");
-        // gpio_set_level(EN_A, 1);
-        // gpio_set_level(EN_B, 1);
-
-        // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, dutyCycleL, 0);
-        // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, dutyCycleR, 0);
-          
-        gpio_set_level(IN_1, 1);
-        gpio_set_level(IN_2, 0);
-        gpio_set_level(IN_3, 1);
-        gpio_set_level(IN_4, 0);
-      }
-  } else if(message[0] == 'l') { // command is lift or left
-    if(message[1] == 'i'){ // command is lift
-      //Serial.println("Rotating Clockwise");
-        // gpio_set_level(EN_A, 1);
-        // gpio_set_level(EN_B, 1);
-
-        // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, dutyCycleL, 0);
-        // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0, 0);
-        
-        gpio_set_level(IN_1, 1);
-        gpio_set_level(IN_2, 0);
-        gpio_set_level(IN_3, 0);
-        gpio_set_level(IN_4, 0);
-    }
-  } else if(message[0] == 'd'){ // command is drop or disapear
-    if(message[1] == 'r'){ // command is drop
-      //Serial.println("Rotating Anti-Clockwise");
-        // gpio_set_level(EN_A, 1);
-        // gpio_set_level(EN_B, 1);
-
-        // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0, 0);
-        // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, dutyCycleR, 0);
-          
-        gpio_set_level(IN_1, 0);
-        gpio_set_level(IN_2, 0);
-        gpio_set_level(IN_3, 1);
-        gpio_set_level(IN_4, 0);
-    }
-  } else { // command is neutral or isn't supported
-    if(message[0] == 'n') { // command is neutral
-      //Serial.println("Continuing Movement");
-    } else{ // command isn't supported
-    //  Serial.println("Stoppping");
-      // gpio_set_level(EN_A, 0);
-      // gpio_set_level(EN_B, 0);
-
-      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0, 0);
-      // ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0, 0);
-
-      gpio_set_level(IN_1, 0);
-      gpio_set_level(IN_2, 0);
-      gpio_set_level(IN_3, 0);
-      gpio_set_level(IN_4, 0);
-
-    }
-  }
-  //Serial.println("-----------------------");
+  read_mqtt_message(topic, payload, length, message);
+  movement_t move = stop;
+  // if(message[0] == 'p'){ // command is push or pull
+  //     if(message[2] == 'l'){ // command is pull
+  //       if(debug) { client.publish(debug_topic, "Stopping"); }
+  //       move = stop;
+  //     } else { // command is push
+  //       if(debug) { client.publish(debug_topic, "Moving Foward"); }
+  //       move = foward;
+  //     }
+  // } else if(message[0] == 'l') { // command is lift or left
+  //   if(message[1] == 'i'){ // command is lift
+  //     if(debug) { client.publish(debug_topic, "Rotating Clockwise"); }
+  //     move = rotate_clockwise;
+  //   }
+  // } else if(message[0] == 'd'){ // command is drop or disapear
+  //   if(message[1] == 'r'){ // command is drop
+  //     if(debug) { client.publish(debug_topic, "Rotating Anti-Clockwise"); }
+  //     move = rotate_anticlockwise;
+  //   }
+  // } else { // command is neutral or isn't supported
+  //   if(message[0] == 'n') { // command is neutral
+  //     if(debug) { client.publish(debug_topic, "Continuing Movement"); }
+  //     move = continue_movement;
+  //   } else{ // command isn't supported
+  //     if(debug) { client.publish(debug_topic, "Command is not supported, stopping"); }
+  //     move = stop;
+  //   }
+  // }
+  if(!strcmp(message, "pull")) { move = stop; }
+  else if(!strcmp(message, "push")) { move = foward; }
+  else if(!strcmp(message, "lift")) { move = rotate_clockwise; }
+  else if(!strcmp(message, "drop")) { move = rotate_anticlockwise; }
+  else { move = stop; }
+  switch_movement(move);
+  if(debug) { client.publish(debug_topic, "-----------------------"); }
 }
 
 void loop() {
+  if (!client.connected()) { // if mqtt client was disconnected
+    if (WiFi.status() == WL_CONNECTED) { // connects to mqtt client if WiFi is connected
+      connect_mqtt();
+    } else { // or waits until WiFi reconnection
+      delay(2000);
+    }
+  } else {
+    // Client connected
     client.loop();
+  }
 }
