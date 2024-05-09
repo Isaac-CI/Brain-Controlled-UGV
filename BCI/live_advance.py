@@ -27,7 +27,7 @@ class LiveAdvance():
         To set the sensitivity of the 4 active mental command actions.
     """
     def __init__(self, app_client_id, app_client_secret, **kwargs):
-        self.c = Cortex(app_client_id, app_client_secret, debug_mode=True, **kwargs)
+        self.c = Cortex(app_client_id, app_client_secret, debug_mode=False, **kwargs)
         self.c.bind(create_session_done=self.on_create_session_done)
         self.c.bind(query_profile_done=self.on_query_profile_done)
         self.c.bind(load_unload_profile_done=self.on_load_unload_profile_done)

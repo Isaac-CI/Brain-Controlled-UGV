@@ -127,14 +127,14 @@ class Cortex(Dispatcher):
         self.connect_mqtt("publisher", "publisher")
         # As default, a Emotiv self-signed certificate is required.
         # If you don't want to use the certificate, please replace by the below line  by sslopt={"cert_reqs": ssl.CERT_NONE}
-        sslopt = {'ca_certs': "./certificates/rootCA.pem", "cert_reqs": ssl.CERT_REQUIRED}
+        sslopt = {'ca_certs': ".\BCI\certificates\\rootCA.pem", "cert_reqs": ssl.CERT_REQUIRED}
 
         self.websock_thread  = threading.Thread(target=self.ws.run_forever, args=(None, sslopt), name=threadName)
         self.mqtt_thread = threading.Thread(target=self.mqtt_client.loop_start, name=mqttThreadName)
         self.websock_thread.start()
         self.mqtt_thread.start()
-        self.websock_thread.join()
-        self.mqtt_thread.join()
+        input("Press Enter to finish the program...")
+        self.close()
 
     def close(self):
         self.ws.close()
