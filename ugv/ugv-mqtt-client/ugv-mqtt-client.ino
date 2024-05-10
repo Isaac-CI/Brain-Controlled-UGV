@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -12,9 +13,6 @@
 #define IN_1 GPIO_NUM_21
 #define EN_A GPIO_NUM_22
 
-#define UNIX true
-#define WINDOWS false
-
 // pwm frequency
 #define PWM_FREQ 2000
 
@@ -23,13 +21,48 @@ const char *ssid = "VIVOFIBRA-C9A8"; // Enter WiFi name
 const char *password = "83D24D124F";  // Enter WiFi password
 
 // MQTT Broker parameters
-const char *mqtt_broker = "0.0.0.0";    // MQTT Broker is in localhost
+const char *mqtt_broker = "9462fe64c36446ae9a704e0a61ce45b2.s1.eu.hivemq.cloud";   // MQTT Broker is in localhost
 const char *topic = "bri/command";          // Sets MQTT topic to subscribe and receive mental commands
 const char *debug_topic = "bri/debug";      // Sets debug topic
-const bool debug = false;                   // Flag that controls debug logic
+const bool debug = true;                   // Flag that controls debug logic
 const char *mqtt_username = "subscriber";   // Sets MQTT client username
-const char *mqtt_password = "subscriber";   // Sets MQTT client password
-const int mqtt_port = 1883;                 // Sets MQTT connection port
+const char *mqtt_password = "#1Subscriber";   // Sets MQTT client password
+const int mqtt_port = 8883;                 // Sets MQTT connection port
+
+
+static const char *root_ca PROGMEM = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+-----END CERTIFICATE-----
+)EOF";
 
 // Setting PWM properties
 
@@ -63,7 +96,7 @@ ledc_timer_config_t timer = {                   // Timer Config
     .clk_cfg         = LEDC_AUTO_CLK            // Automatic selection of clock generation source
 };
 
-WiFiClient espClient;           // WiFI client helper
+WiFiClientSecure espClient;     // WiFI client helper
 PubSubClient client(espClient); // MQTT client helper
 
 typedef enum { // Enum type for improved readability
@@ -126,8 +159,8 @@ void switch_movement(command_t command) {
       break;
     // Command is continue movement or a value that is not supported
     default:
-      Serial.println("Stop");
       // do nothing
+      Serial.println("Doing nothing");
       break;
   }
 }
@@ -165,6 +198,7 @@ void set_pins() {
 */
 void connect_mqtt() {
   // set mqtt broker parameters
+  espClient.setCACert(root_ca);
   client.setServer(mqtt_broker, mqtt_port);
   
   // register callback for recieving data
@@ -175,9 +209,8 @@ void connect_mqtt() {
       String client_id = "esp32-client-";
       client_id += String(WiFi.macAddress());
       Serial.printf("The client %s connects to the public MQTT broker\n", client_id.c_str());
-      if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
-        if(debug) { Serial.println("Public MQTT broker connected"); }
-      } else {
+      if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {Serial.println("Public MQTT broker connected"); }
+      else {
           Serial.print("failed with state ");
           Serial.println(client.state());
           delay(2000);
@@ -195,7 +228,12 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
   if(debug) { Serial.println("Trying to Reconnect"); }
   // reconnects to WiFi
   WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("Reconnecting to WiFi");
+  }
   // Reconnects to mqtt broker and subscribes to topic
+  Serial.println("Reconnected to WiFi");
   connect_mqtt();
 }
 
@@ -238,6 +276,7 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
   }
+  Serial.println("Connected to wifi");
   //connecting to a mqtt broker
   connect_mqtt();
 }
@@ -251,12 +290,14 @@ void callback(char *topic, byte *payload, unsigned int length) {
   command = stop;
 
   // Verifiy which command was received
-  if(!strcmp(message, "pull")) { command = forward; }                 // If the received command is pull, the ugv moves forward
-  else if(!strcmp(message, "push")) { command = rotate_clockwise; }
-  else if(!strcmp(message, "neutral")) { command = stop; }
+  if(!strcmp(message, "pull")) { command = forward; }                   // If the received command is pull, the ugv moves forward
+  else if(!strcmp(message, "push")) { command = rotate_clockwise; }     // If the received command is push, the ugv is rotated clockwise
+  else if(!strcmp(message, "neutral")) { command = continue_movement; }  // if the received command is neutral, the ugv continues it's movement
+  if(!strcmp(message, "furrow brows")) { command = stop; }                     // if the received command is smile, the ugv stops. Stopping command has priority, so even if the mental command says otherwise. Should the user be perceived smilling, the ugv stops
   
   // Update pin output accordingly to the received command
   switch_movement(command);
+  Serial.println("message");
   if(debug) { Serial.println("-----------------------"); }
 }
 
@@ -267,6 +308,7 @@ void loop() {
     if (WiFi.status() == WL_CONNECTED) { // connects to mqtt client if WiFi is connected
       connect_mqtt();
     } else { // waits for WiFi reconnection
+      Serial.println("Waiting for WiFi connection");
       delay(200);
     }
   } else {

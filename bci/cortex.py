@@ -7,7 +7,9 @@ import sys
 from pydispatch import Dispatcher
 import warnings
 import threading
+import certifi
 import paho.mqtt.client as mqtt
+import time
 
 # define request id
 QUERY_HEADSET_ID                    =   1
@@ -100,10 +102,8 @@ class Cortex(Dispatcher):
         def on_connect(self, client, userdata, flags, rc):
         # For paho-mqtt 2.0.0, you need to add the properties parameter.
         # def on_connect(client, userdata, flags, rc, properties):
-            if rc == 0:
-                print("Connected to MQTT Broker!")
-            else:
-                print("Failed to connect, return code " + str(rc))
+            print("CONNACK received with code %s." % rc)
+
         # Set Connecting Client ID
         self.mqtt_client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 
@@ -112,7 +112,9 @@ class Cortex(Dispatcher):
 
         self.mqtt_client.username_pw_set(username, password)
         self.mqtt_client.on_connect = on_connect
-        self.mqtt_client.connect("localhost", 1883)
+        
+        self.mqtt_client.tls_set(certifi.where())
+        self.mqtt_client.connect("9462fe64c36446ae9a704e0a61ce45b2.s1.eu.hivemq.cloud", 8883)
 
     def open(self):
         url = "wss://localhost:6868"
@@ -124,7 +126,7 @@ class Cortex(Dispatcher):
                                         on_close=self.on_close)
         threadName = "WebsockThread:-{:%Y%m%d%H%M%S}".format(datetime.utcnow())
         mqttThreadName = "MqttThread-{:%Y%m%d%H%M%S}".format(datetime.utcnow())
-        self.connect_mqtt("publisher", "publisher")
+        self.connect_mqtt("publisher", "#1Publisher")
         # As default, a Emotiv self-signed certificate is required.
         # If you don't want to use the certificate, please replace by the below line  by sslopt={"cert_reqs": ssl.CERT_NONE}
         sslopt = {'ca_certs': ".\BCI\certificates\\rootCA.pem", "cert_reqs": ssl.CERT_REQUIRED}
@@ -368,14 +370,15 @@ class Cortex(Dispatcher):
 
     def handle_stream_data(self, result_dic):
         if result_dic.get('com') != None:
+            self.mqtt_client.publish('bri/command', result_dic['com'][0])  # sends mental command to mqtt broker
             com_data = {}
-            com_data['action'] = result_dic['com'][0]
-            com_data['power'] = result_dic['com'][1]
-            com_data['time'] = result_dic['time']
+            com_data['action'] = result_dic['com'][0]   # Mental command
+            com_data['power'] = result_dic['com'][1]    # Mental command power
+            com_data['time'] = result_dic['time']       # Timestamp of the moment where the mental command was generated
             self.emit('new_com_data', data=com_data)
-            self.mqtt_client.publish('bri/command', com_data['action'])
-            print(com_data)
+            # print(com_data)
         elif result_dic.get('fac') != None:
+            self.mqtt_client.publish('bri/command', result_dic['fac'][3]) #sends lower action to mqtt broker
             fe_data = {}
             fe_data['eyeAct'] = result_dic['fac'][0]    #eye action
             fe_data['uAct'] = result_dic['fac'][1]      #upper action

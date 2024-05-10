@@ -230,7 +230,7 @@ class LiveAdvance():
     def on_save_profile_done (self, *args, **kwargs):
         print('Save profile ' + self.profile_name + " successfully")
         # subscribe mental command data
-        stream = ['com']
+        stream = ['com', 'fac']
         self.subscribe_data(stream)
 
     def on_new_com_data(self, *args, **kwargs):
@@ -244,17 +244,6 @@ class LiveAdvance():
         """
         data = kwargs.get('data')
         print('mc data: {}'.format(data))
-
-    async def on_new_com_data_mqtt(self, *args, **kwargs):
-        """
-        To handle mental command data emitted from Cortex, mapping each mental command into instructions for the robot
-        
-        Returns
-        -------
-        data: dictionary
-             the format such as {'action': 'neutral', 'power': 0.0, 'time': 1590736942.8479}
-        """
-        data = kwargs.get('data')
         
     def on_get_mc_active_action_done(self, *args, **kwargs):
         data = kwargs.get('data')
