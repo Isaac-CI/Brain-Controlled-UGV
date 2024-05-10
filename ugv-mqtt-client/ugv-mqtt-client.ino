@@ -12,6 +12,9 @@
 #define IN_1 GPIO_NUM_21
 #define EN_A GPIO_NUM_22
 
+#define UNIX true
+#define WINDOWS false
+
 // pwm frequency
 #define PWM_FREQ 2000
 
@@ -20,7 +23,7 @@ const char *ssid = "VIVOFIBRA-C9A8"; // Enter WiFi name
 const char *password = "83D24D124F";  // Enter WiFi password
 
 // MQTT Broker parameters
-const char *mqtt_broker = "192.168.15.120"; // MQTT Broker is in localhost
+const char *mqtt_broker = "0.0.0.0";    // MQTT Broker is in localhost
 const char *topic = "bri/command";          // Sets MQTT topic to subscribe and receive mental commands
 const char *debug_topic = "bri/debug";      // Sets debug topic
 const bool debug = false;                   // Flag that controls debug logic
@@ -64,7 +67,7 @@ WiFiClient espClient;           // WiFI client helper
 PubSubClient client(espClient); // MQTT client helper
 
 typedef enum { // Enum type for improved readability
-  foward,
+  forward,
   rotate_clockwise,
   rotate_counterclockwise,
   stop,
@@ -81,7 +84,7 @@ command_t command;
 */
 void switch_movement(command_t command) {
   switch(command) {
-    // Command = foward
+    // Command = forward
     case 0:
       ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, dutyCycleL, 0);
       ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, dutyCycleR, 0);
@@ -89,6 +92,7 @@ void switch_movement(command_t command) {
       gpio_set_level(IN_2, 0);
       gpio_set_level(IN_3, 1);
       gpio_set_level(IN_4, 0);
+      Serial.println("Forward");
       break;
     // Command = rotate_clockwise
     case 1:
@@ -97,16 +101,18 @@ void switch_movement(command_t command) {
       gpio_set_level(IN_1, 1);
       gpio_set_level(IN_2, 0);
       gpio_set_level(IN_3, 0); 
-      gpio_set_level(IN_4, 0);
+      gpio_set_level(IN_4, 1);
+      Serial.println("Rotate Clockwise");
       break;
     // Command = rotate_counterclockwise
     case 2:
       ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0, 0);
       ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, dutyCycleR, 0);  
       gpio_set_level(IN_1, 0);
-      gpio_set_level(IN_2, 0);
+      gpio_set_level(IN_2, 1);
       gpio_set_level(IN_3, 1);
       gpio_set_level(IN_4, 0);
+      Serial.println("Rotate Counter Clockwise");
       break;
     // Command = stop
     case 3:
@@ -116,9 +122,11 @@ void switch_movement(command_t command) {
       gpio_set_level(IN_2, 0);
       gpio_set_level(IN_3, 0);
       gpio_set_level(IN_4, 0);
+      Serial.println("Stop");
       break;
     // Command is continue movement or a value that is not supported
     default:
+      Serial.println("Stop");
       // do nothing
       break;
   }
@@ -168,10 +176,10 @@ void connect_mqtt() {
       client_id += String(WiFi.macAddress());
       Serial.printf("The client %s connects to the public MQTT broker\n", client_id.c_str());
       if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
-        if(debug) { client.publish(debug_topic, "Public MQTT broker connected"); }
+        if(debug) { Serial.println("Public MQTT broker connected"); }
       } else {
           Serial.print("failed with state ");
-          Serial.print(client.state());
+          Serial.println(client.state());
           delay(2000);
       }
   }
@@ -243,12 +251,9 @@ void callback(char *topic, byte *payload, unsigned int length) {
   command = stop;
 
   // Verifiy which command was received
-  if(!strcmp(message, "pull")) { command = stop; }
-  else if(!strcmp(message, "push")) { command = foward; }
-  else if(!strcmp(message, "lift")) { command = rotate_clockwise; }
-  else if(!strcmp(message, "drop")) { command = rotate_counterclockwise; }
-  else if(!strcmp(message, "neutral")) { command = continue_movement; }
-  // else { command = stop; }
+  if(!strcmp(message, "pull")) { command = forward; }
+  else if(!strcmp(message, "push")) { command = rotate_clockwise; }
+  else if(!strcmp(message, "neutral")) { command = stop; }
   
   // Update pin output accordingly to the received command
   switch_movement(command);
