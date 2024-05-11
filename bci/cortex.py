@@ -378,7 +378,7 @@ class Cortex(Dispatcher):
             self.emit('new_com_data', data=com_data)
             # print(com_data)
         elif result_dic.get('fac') != None:
-            self.mqtt_client.publish('bri/command', result_dic['fac'][3]) #sends lower action to mqtt broker
+            self.mqtt_client.publish('bri/command', result_dic['fac'][1]) #sends upper action to mqtt broker
             fe_data = {}
             fe_data['eyeAct'] = result_dic['fac'][0]    #eye action
             fe_data['uAct'] = result_dic['fac'][1]      #upper action

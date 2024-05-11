@@ -6,12 +6,12 @@
 #include "esp_err.h"
 
 // h-bridge output/pwm pins
-#define EN_B GPIO_NUM_23
-#define IN_4 GPIO_NUM_19
-#define IN_3 GPIO_NUM_5
-#define IN_2 GPIO_NUM_18
-#define IN_1 GPIO_NUM_21
-#define EN_A GPIO_NUM_22
+#define EN_B GPIO_NUM_5
+#define IN_4 GPIO_NUM_18
+#define IN_3 GPIO_NUM_19
+#define IN_2 GPIO_NUM_21
+#define IN_1 GPIO_NUM_22
+#define EN_A GPIO_NUM_23
 
 // pwm frequency
 #define PWM_FREQ 2000
@@ -67,8 +67,8 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 // Setting PWM properties
 
 // PWM duty cycle
-uint32_t dutyCycleL = 755;              // Duty Cycle for left motor. It is slightly bigger right motor duty cycle in order to compesate uneven load
-uint32_t dutyCycleR = 750;              // Duty Cycle for right motor
+uint32_t dutyCycleL = 750;              // Duty Cycle for left motor. It is slightly bigger right motor duty cycle in order to compesate uneven load
+uint32_t dutyCycleR = 770;              // Duty Cycle for right motor
 
 ledc_channel_config_t channel_EN_A = {   // PWM channel config
   .gpio_num   =   EN_A,                  // Selects PWM pin
@@ -127,10 +127,11 @@ void switch_movement(command_t command) {
       gpio_set_level(IN_4, 0);
       Serial.println("Forward");
       break;
+
     // Command = rotate_clockwise
     case 1:
       ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, dutyCycleL, 0);
-      ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0, 0);
+      ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, dutyCycleR, 0);
       gpio_set_level(IN_1, 1);
       gpio_set_level(IN_2, 0);
       gpio_set_level(IN_3, 0); 
@@ -222,6 +223,8 @@ void connect_mqtt() {
 }
 
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
+  command = stop;
+  switch_movement(command);
   if(debug) { Serial.println("Disconnected from WiFi access point"); }
   Serial.print("WiFi lost connection. Reason: ");
   if(debug) { Serial.println((char*) &info.wifi_sta_disconnected.reason); }
@@ -272,6 +275,8 @@ void setup() {
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
   // Connecting to a WiFi network
+  command = stop;
+  switch_movement(command);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
@@ -293,7 +298,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
   if(!strcmp(message, "pull")) { command = forward; }                   // If the received command is pull, the ugv moves forward
   else if(!strcmp(message, "push")) { command = rotate_clockwise; }     // If the received command is push, the ugv is rotated clockwise
   else if(!strcmp(message, "neutral")) { command = continue_movement; }  // if the received command is neutral, the ugv continues it's movement
-  if(!strcmp(message, "furrow brows")) { command = stop; }                     // if the received command is smile, the ugv stops. Stopping command has priority, so even if the mental command says otherwise. Should the user be perceived smilling, the ugv stops
+  else if(!strcmp(message, "frown")) { command = stop; }                     // if the received command is smile, the ugv stops. Stopping command has priority, so even if the mental command says otherwise. Should the user be perceived smilling, the ugv stops
   
   // Update pin output accordingly to the received command
   switch_movement(command);
