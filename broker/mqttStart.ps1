@@ -1,0 +1,1 @@
+mosquitto -c '.\broker\mosquitto\mosquitto.conf' -v
