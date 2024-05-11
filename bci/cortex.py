@@ -114,7 +114,7 @@ class Cortex(Dispatcher):
         self.mqtt_client.on_connect = on_connect
         
         self.mqtt_client.tls_set(certifi.where())
-        self.mqtt_client.connect("9462fe64c36446ae9a704e0a61ce45b2.s1.eu.hivemq.cloud", 8883)
+        self.mqtt_client.connect("905ba2a15ab74555bdfc4340a1423f04.s1.eu.hivemq.cloud", 8883)
 
     def open(self):
         url = "wss://localhost:6868"

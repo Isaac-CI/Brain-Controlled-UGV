@@ -21,7 +21,7 @@ const char *ssid = "VIVOFIBRA-C9A8"; // Enter WiFi name
 const char *password = "83D24D124F";  // Enter WiFi password
 
 // MQTT Broker parameters
-const char *mqtt_broker = "9462fe64c36446ae9a704e0a61ce45b2.s1.eu.hivemq.cloud";   // MQTT Broker is in localhost
+const char *mqtt_broker = "905ba2a15ab74555bdfc4340a1423f04.s1.eu.hivemq.cloud";   // MQTT Broker is in localhost
 const char *topic = "bri/command";          // Sets MQTT topic to subscribe and receive mental commands
 const char *debug_topic = "bri/debug";      // Sets debug topic
 const bool debug = true;                   // Flag that controls debug logic
