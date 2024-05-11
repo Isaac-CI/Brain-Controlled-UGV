@@ -6,7 +6,6 @@ CLIENT_ID = 'mQOlnlVpAG5F0tyN0QTHZT5l1HqGQlDrCqHcbOnF'
 def main():
     workflow = LiveAdvance(app_client_id=CLIENT_ID, app_client_secret=CLIENT_SECRET)
     workflow.start("teste")
-    workflow.c.close()
 
 if __name__ == "__main__":
     main()
