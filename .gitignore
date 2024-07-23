@@ -1,4 +1,4 @@
-../.vscode
+./.vscode
 bci/.vscode
 bci/BRI_local.py
 bci/cortex_local.py
