@@ -1,11 +1,11 @@
 from live_advance import LiveAdvance
 
-CLIENT_SECRET = 'DSveuaZepqJFlJakhsBTluKa6iU1vDkLvO9wo0ZwBWsIux4eoHRXypl6j6O1qgd5fXCMdt8ZAH7Vym28yYYz7ydtGsjIyitzL5VGYfSJw1u9QyOj5mqJwrVBoHGNAay4'
-CLIENT_ID = 'mQOlnlVpAG5F0tyN0QTHZT5l1HqGQlDrCqHcbOnF'
+CLIENT_SECRET = 'your emotiv client secret'
+CLIENT_ID = 'your emotiv client ID'
 
 def main():
     workflow = LiveAdvance(app_client_id=CLIENT_ID, app_client_secret=CLIENT_SECRET)
-    workflow.start("ugv")
+    workflow.start("your emotiv profile name")
 
 if __name__ == "__main__":
     main()

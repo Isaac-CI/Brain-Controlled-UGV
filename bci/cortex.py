@@ -114,7 +114,7 @@ class Cortex(Dispatcher):
         self.mqtt_client.on_connect = on_connect
         
         self.mqtt_client.tls_set(certifi.where())
-        self.mqtt_client.connect("905ba2a15ab74555bdfc4340a1423f04.s1.eu.hivemq.cloud", 8883)
+        self.mqtt_client.connect("your mqtt broker url", 8883)
 
     def open(self):
         url = "wss://localhost:6868"
@@ -129,7 +129,7 @@ class Cortex(Dispatcher):
         self.connect_mqtt("publisher", "#1Publisher")
         # As default, a Emotiv self-signed certificate is required.
         # If you don't want to use the certificate, please replace by the below line  by sslopt={"cert_reqs": ssl.CERT_NONE}
-        sslopt = {'ca_certs': ".\BCI\certificates\\rootCA.pem", "cert_reqs": ssl.CERT_REQUIRED}
+        sslopt = {'ca_certs': "your emotiv rootCA.pem file path", "cert_reqs": ssl.CERT_REQUIRED}
 
         self.websock_thread  = threading.Thread(target=self.ws.run_forever, args=(None, sslopt), name=threadName)
         self.mqtt_thread = threading.Thread(target=self.mqtt_client.loop_start, name=mqttThreadName)

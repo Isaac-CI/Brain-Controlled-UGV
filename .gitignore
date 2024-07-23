@@ -1,0 +1,6 @@
+.vscode
+bci/BRI_local.py
+bci/cortex_local.py
+bci/live_advance_local.py
+bco/__pycache__
+bci/certificates/rootCA.pem

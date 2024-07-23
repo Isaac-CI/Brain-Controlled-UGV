@@ -306,13 +306,13 @@ class LiveAdvance():
 def main():
 
     # Please fill your application clientId and clientSecret before running script
-    your_app_client_id = 'mQOlnlVpAG5F0tyN0QTHZT5l1HqGQlDrCqHcbOnF'
-    your_app_client_secret = 'DSveuaZepqJFlJakhsBTluKa6iU1vDkLvO9wo0ZwBWsIux4eoHRXypl6j6O1qgd5fXCMdt8ZAH7Vym28yYYz7ydtGsjIyitzL5VGYfSJw1u9QyOj5mqJwrVBoHGNAay4'
+    your_app_client_id = 'your emotiv client id'
+    your_app_client_secret = 'your emotiv client secret'
 
     # Init live advance
     l = LiveAdvance(your_app_client_id, your_app_client_secret)
 
-    trained_profile_name = 'Isaac' # Please set a trained profile name here
+    trained_profile_name = 'Your trained profile name' # Please set a trained profile name here
     l.start(trained_profile_name)
 
 if __name__ =='__main__':
