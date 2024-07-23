@@ -1,4 +1,5 @@
-.vscode
+../.vscode
+bci/.vscode
 bci/BRI_local.py
 bci/cortex_local.py
 bci/live_advance_local.py
